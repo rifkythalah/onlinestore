@@ -3,119 +3,77 @@
 namespace App\Core;
 
 /**
- * Class Response
+ * Menangani semua HTTP response dalam format JSON.
  *
- * Helper untuk mengirim response JSON yang terstandarisasi
- * dengan HTTP status code yang sesuai.
+ * Setiap response memiliki struktur yang konsisten:
+ * { "status": "success|error", "message": "...", "data": ... }
  */
 class Response
 {
     /**
-     * Kirim response JSON sukses.
+     * Kirim response sukses (HTTP 200).
      *
      * @param mixed  $data    Data yang dikembalikan ke client
-     * @param string $message Pesan sukses
-     * @param int    $status  HTTP status code (default: 200)
-     * @return void
+     * @param string $message Pesan deskriptif
      */
-    public static function success(mixed $data = null, string $message = 'Success', int $status = 200): void
+    public static function success(mixed $data = null, string $message = 'Success'): void
     {
-        self::json([
-            'status'  => 'success',
-            'message' => $message,
-            'data'    => $data,
-        ], $status);
+        self::send(['status' => 'success', 'message' => $message, 'data' => $data], 200);
     }
 
     /**
-     * Kirim response JSON untuk resource yang baru dibuat (HTTP 201).
+     * Kirim response resource baru berhasil dibuat (HTTP 201).
      *
      * @param mixed  $data    Data resource yang baru dibuat
-     * @param string $message Pesan sukses
-     * @return void
+     * @param string $message Pesan deskriptif
      */
-    public static function created(mixed $data = null, string $message = 'Resource created successfully'): void
+    public static function created(mixed $data = null, string $message = 'Created successfully'): void
     {
-        self::success($data, $message, 201);
+        self::send(['status' => 'success', 'message' => $message, 'data' => $data], 201);
     }
 
     /**
-     * Kirim response JSON error.
+     * Kirim response error generik.
      *
-     * @param string $message Pesan error
-     * @param int    $status  HTTP status code (default: 400)
-     * @param mixed  $errors  Detail error validasi (opsional)
-     * @return void
+     * @param string $message Pesan error yang informatif
+     * @param int    $status  HTTP status code
+     * @param mixed  $errors  Detail validasi tambahan (opsional)
      */
     public static function error(string $message, int $status = 400, mixed $errors = null): void
     {
-        $body = [
-            'status'  => 'error',
-            'message' => $message,
-        ];
+        $body = ['status' => 'error', 'message' => $message];
 
         if ($errors !== null) {
             $body['errors'] = $errors;
         }
 
-        self::json($body, $status);
+        self::send($body, $status);
     }
 
-    /**
-     * Kirim response 404 Not Found.
-     *
-     * @param string $message Pesan error
-     * @return void
-     */
+    /** Kirim response 404 Not Found. */
     public static function notFound(string $message = 'Resource not found'): void
     {
         self::error($message, 404);
     }
 
     /**
-     * Kirim response 422 Unprocessable Entity (validasi gagal / stok habis).
-     *
-     * @param string $message Pesan error
-     * @param mixed  $errors  Detail error (opsional)
-     * @return void
+     * Kirim response 422 Unprocessable Entity.
+     * Digunakan saat validasi bisnis gagal, misalnya stok tidak cukup.
      */
     public static function unprocessable(string $message, mixed $errors = null): void
     {
         self::error($message, 422, $errors);
     }
 
-    /**
-     * Kirim response 409 Conflict (race condition terdeteksi / resource conflict).
-     *
-     * @param string $message Pesan error
-     * @return void
-     */
-    public static function conflict(string $message): void
-    {
-        self::error($message, 409);
-    }
-
-    /**
-     * Kirim response 500 Internal Server Error.
-     *
-     * @param string $message Pesan error
-     * @return void
-     */
+    /** Kirim response 500 Internal Server Error. */
     public static function serverError(string $message = 'Internal server error'): void
     {
         self::error($message, 500);
     }
 
-    /**
-     * Encode data ke JSON dan kirim sebagai HTTP response.
-     *
-     * @param mixed $data   Data yang akan di-encode
-     * @param int   $status HTTP status code
-     * @return void
-     */
-    private static function json(mixed $data, int $status): void
+    /** Encode ke JSON dan kirim ke client. */
+    private static function send(mixed $data, int $status): void
     {
-        // Set header Content-Type JSON dan HTTP status code
         http_response_code($status);
         header('Content-Type: application/json; charset=UTF-8');
         header('Access-Control-Allow-Origin: *');

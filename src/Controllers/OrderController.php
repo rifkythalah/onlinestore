@@ -2,14 +2,13 @@
 
 namespace App\Controllers;
 
-use App\Services\OrderService;
+use App\Core\Database;
 use App\Core\Response;
+use App\Services\OrderService;
 use Exception;
 
 /**
- * Class OrderController
- *
- * Menangani HTTP Request untuk endpoint /api/orders
+ * Menangani semua request HTTP untuk endpoint /api/orders.
  */
 class OrderController
 {
@@ -20,22 +19,17 @@ class OrderController
         $this->service = new OrderService();
     }
 
-    /**
-     * GET /api/orders
-     */
+    /** GET /api/orders */
     public function index(): void
     {
-        $orders = $this->service->getAllOrders();
-        Response::success($orders, 'Daftar pesanan berhasil diambil.');
+        Response::success($this->service->getAllOrders(), 'Daftar pesanan berhasil diambil.');
     }
 
-    /**
-     * GET /api/orders/{id}
-     */
+    /** GET /api/orders/{id} */
     public function show(string $id): void
     {
         $order = $this->service->getOrderById((int) $id);
-        
+
         if (!$order) {
             Response::notFound("Pesanan dengan ID {$id} tidak ditemukan.");
             return;
@@ -46,53 +40,80 @@ class OrderController
 
     /**
      * POST /api/orders
-     * Endpoint krusial untuk simulasi Flash Sale
+     *
+     * Endpoint ini dilindungi dari race condition oleh OrderService.
+     * Request body yang diharapkan:
+     * {
+     *   "items": [{ "product_id": 1, "quantity": 2 }],
+     *   "notes": "..." (opsional)
+     * }
      */
     public function store(): void
     {
-        $input = $this->getJsonInput();
+        $input = $this->parseInput();
 
         if (empty($input['items']) || !is_array($input['items'])) {
-            Response::error('Payload harus memiliki array "items".', 400);
+            Response::error('Field "items" wajib diisi dan harus berupa array.', 400);
             return;
         }
 
         try {
             $result = $this->service->createOrder($input['items'], $input['notes'] ?? null);
-            
-            // Jika service mengembalikan string, berarti validasi stok gagal / error bisnis
+
+            // Service mengembalikan string jika ada kegagalan validasi bisnis (stok habis, dll)
             if (is_string($result)) {
                 Response::unprocessable($result);
                 return;
             }
 
-            // Jika mengembalikan array, order sukses dibuat
-            Response::created($result, 'Pesanan berhasil dibuat!');
+            Response::created($result, 'Pesanan berhasil dibuat.');
 
         } catch (Exception $e) {
-            // Tangkap jika terjadi deadlock atau error database lainnya
-            Response::serverError('Terjadi kesalahan sistem saat memproses pesanan: ' . $e->getMessage());
+            Response::serverError('Terjadi kesalahan saat memproses pesanan: ' . $e->getMessage());
         }
     }
 
     /**
      * PUT /api/orders/{id}
-     * Update status pesanan (opsional)
+     *
+     * Update status pesanan. Status yang valid: pending, confirmed, cancelled.
      */
     public function update(string $id): void
     {
-        // Untuk penyederhanaan, implementasi bisa dilanjutkan sesuai kebutuhan
-        Response::success(null, "Endpoint update status order {$id} (TBD)");
+        $input  = $this->parseInput();
+        $status = $input['status'] ?? null;
+
+        $validStatuses = ['pending', 'confirmed', 'cancelled'];
+
+        if (!$status || !in_array($status, $validStatuses)) {
+            Response::error('Field "status" wajib diisi. Nilai yang valid: ' . implode(', ', $validStatuses), 400);
+            return;
+        }
+
+        try {
+            $db   = Database::getInstance();
+            $stmt = $db->query(
+                "UPDATE orders SET status = ? WHERE id = ? RETURNING *",
+                [$status, (int) $id]
+            );
+
+            $order = $stmt->fetch();
+
+            if (!$order) {
+                Response::notFound("Pesanan dengan ID {$id} tidak ditemukan.");
+                return;
+            }
+
+            Response::success($order, 'Status pesanan berhasil diperbarui.');
+        } catch (Exception $e) {
+            Response::serverError('Gagal memperbarui status pesanan: ' . $e->getMessage());
+        }
     }
 
-    /**
-     * Helper untuk membaca JSON payload
-     */
-    private function getJsonInput(): array
+    /** Baca dan decode JSON dari request body. */
+    private function parseInput(): array
     {
-        $json = file_get_contents('php://input');
-        $data = json_decode($json, true);
-        
+        $data = json_decode(file_get_contents('php://input'), true);
         return is_array($data) ? $data : [];
     }
 }

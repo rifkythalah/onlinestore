@@ -2,13 +2,11 @@
 
 namespace App\Controllers;
 
-use App\Services\ProductService;
 use App\Core\Response;
+use App\Services\ProductService;
 
 /**
- * Class ProductController
- *
- * Menangani HTTP Request untuk endpoint /api/products
+ * Menangani semua request HTTP untuk endpoint /api/products.
  */
 class ProductController
 {
@@ -19,22 +17,17 @@ class ProductController
         $this->service = new ProductService();
     }
 
-    /**
-     * GET /api/products
-     */
+    /** GET /api/products */
     public function index(): void
     {
-        $products = $this->service->getAllProducts();
-        Response::success($products, 'Daftar produk berhasil diambil.');
+        Response::success($this->service->getAllProducts(), 'Daftar produk berhasil diambil.');
     }
 
-    /**
-     * GET /api/products/{id}
-     */
+    /** GET /api/products/{id} */
     public function show(string $id): void
     {
         $product = $this->service->getProductById((int) $id);
-        
+
         if (!$product) {
             Response::notFound("Produk dengan ID {$id} tidak ditemukan.");
             return;
@@ -43,52 +36,46 @@ class ProductController
         Response::success($product, 'Detail produk berhasil diambil.');
     }
 
-    /**
-     * POST /api/products
-     */
+    /** POST /api/products */
     public function store(): void
     {
-        $input = $this->getJsonInput();
+        $input = $this->parseInput();
 
-        // Validasi dasar
         if (empty($input['name']) || !isset($input['price'])) {
-            Response::error('Nama dan Harga produk wajib diisi.', 400);
+            Response::error('Field name dan price wajib diisi.', 400);
             return;
         }
 
-        if ($input['price'] < 0 || (isset($input['stock']) && $input['stock'] < 0)) {
-            Response::error('Harga dan stok tidak boleh negatif.', 422);
+        if ($input['price'] < 0 || ($input['stock'] ?? 0) < 0) {
+            Response::unprocessable('Harga dan stok tidak boleh bernilai negatif.');
             return;
         }
 
         try {
-            $product = $this->service->createProduct($input);
-            Response::created($product, 'Produk berhasil ditambahkan.');
+            Response::created($this->service->createProduct($input), 'Produk berhasil ditambahkan.');
         } catch (\Exception $e) {
-            Response::serverError('Gagal menambahkan produk: ' . $e->getMessage());
+            Response::serverError('Gagal menyimpan produk: ' . $e->getMessage());
         }
     }
 
-    /**
-     * PUT /api/products/{id}
-     */
+    /** PUT /api/products/{id} */
     public function update(string $id): void
     {
-        $input = $this->getJsonInput();
+        $input = $this->parseInput();
 
-        if (empty($input['name']) || !isset($input['price']) || !isset($input['stock'])) {
-            Response::error('Nama, Harga, dan Stok wajib diisi.', 400);
+        if (empty($input['name']) || !isset($input['price'], $input['stock'])) {
+            Response::error('Field name, price, dan stock wajib diisi.', 400);
             return;
         }
 
         if ($input['price'] < 0 || $input['stock'] < 0) {
-            Response::error('Harga dan stok tidak boleh negatif.', 422);
+            Response::unprocessable('Harga dan stok tidak boleh bernilai negatif.');
             return;
         }
 
         try {
             $product = $this->service->updateProduct((int) $id, $input);
-            
+
             if (!$product) {
                 Response::notFound("Produk dengan ID {$id} tidak ditemukan.");
                 return;
@@ -100,14 +87,12 @@ class ProductController
         }
     }
 
-    /**
-     * DELETE /api/products/{id}
-     */
+    /** DELETE /api/products/{id} */
     public function destroy(string $id): void
     {
         try {
             $deleted = $this->service->deleteProduct((int) $id);
-            
+
             if (!$deleted) {
                 Response::notFound("Produk dengan ID {$id} tidak ditemukan.");
                 return;
@@ -119,14 +104,10 @@ class ProductController
         }
     }
 
-    /**
-     * Helper untuk membaca JSON payload dari request body
-     */
-    private function getJsonInput(): array
+    /** Baca dan decode JSON dari request body. */
+    private function parseInput(): array
     {
-        $json = file_get_contents('php://input');
-        $data = json_decode($json, true);
-        
+        $data = json_decode(file_get_contents('php://input'), true);
         return is_array($data) ? $data : [];
     }
 }

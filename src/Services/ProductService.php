@@ -5,9 +5,7 @@ namespace App\Services;
 use App\Core\Database;
 
 /**
- * Class ProductService
- *
- * Menangani logika bisnis dan query database untuk entitas Product.
+ * Menangani seluruh logika bisnis dan query terkait Produk.
  */
 class ProductService
 {
@@ -18,76 +16,68 @@ class ProductService
         $this->db = Database::getInstance();
     }
 
-    /**
-     * Ambil semua produk
-     */
+    /** Ambil semua produk, urut dari yang terbaru. */
     public function getAllProducts(): array
     {
-        $stmt = $this->db->query("SELECT * FROM products ORDER BY id DESC");
-        return $stmt->fetchAll();
+        return $this->db->query('SELECT * FROM products ORDER BY id DESC')->fetchAll();
     }
 
-    /**
-     * Ambil detail satu produk berdasarkan ID
-     */
+    /** Ambil satu produk berdasarkan ID, null jika tidak ditemukan. */
     public function getProductById(int $id): ?array
     {
-        $stmt = $this->db->query("SELECT * FROM products WHERE id = ?", [$id]);
-        $product = $stmt->fetch();
+        $product = $this->db->query('SELECT * FROM products WHERE id = ?', [$id])->fetch();
         return $product ?: null;
     }
 
     /**
-     * Buat produk baru
+     * Tambah produk baru ke database.
+     *
+     * @param array $data Field: name, price, stock, description (opsional), sale_price (opsional)
      */
     public function createProduct(array $data): array
     {
-        $sql = "INSERT INTO products (name, description, price, sale_price, stock) 
-                VALUES (?, ?, ?, ?, ?) RETURNING *";
-        
-        $stmt = $this->db->query($sql, [
-            $data['name'],
-            $data['description'] ?? null,
-            $data['price'],
-            $data['sale_price'] ?? null,
-            $data['stock'] ?? 0
-        ]);
-
-        return $stmt->fetch();
+        return $this->db->query(
+            'INSERT INTO products (name, description, price, sale_price, stock)
+             VALUES (?, ?, ?, ?, ?) RETURNING *',
+            [
+                $data['name'],
+                $data['description'] ?? null,
+                $data['price'],
+                $data['sale_price'] ?? null,
+                $data['stock'] ?? 0,
+            ]
+        )->fetch();
     }
 
     /**
-     * Update produk yang sudah ada (termasuk restock)
+     * Update data produk. Mengembalikan null jika ID tidak ditemukan.
+     *
+     * @param array $data Field: name, price, stock, description (opsional), sale_price (opsional)
      */
     public function updateProduct(int $id, array $data): ?array
     {
-        // Pastikan produk ada
         if (!$this->getProductById($id)) {
             return null;
         }
 
-        $sql = "UPDATE products 
-                SET name = ?, description = ?, price = ?, sale_price = ?, stock = ? 
-                WHERE id = ? RETURNING *";
-        
-        $stmt = $this->db->query($sql, [
-            $data['name'],
-            $data['description'] ?? null,
-            $data['price'],
-            $data['sale_price'] ?? null,
-            $data['stock'],
-            $id
-        ]);
-
-        return $stmt->fetch();
+        return $this->db->query(
+            'UPDATE products
+             SET name = ?, description = ?, price = ?, sale_price = ?, stock = ?
+             WHERE id = ? RETURNING *',
+            [
+                $data['name'],
+                $data['description'] ?? null,
+                $data['price'],
+                $data['sale_price'] ?? null,
+                $data['stock'],
+                $id,
+            ]
+        )->fetch();
     }
 
-    /**
-     * Hapus produk
-     */
+    /** Hapus produk. Mengembalikan false jika ID tidak ditemukan. */
     public function deleteProduct(int $id): bool
     {
-        $stmt = $this->db->query("DELETE FROM products WHERE id = ?", [$id]);
-        return $stmt->rowCount() > 0;
+        return $this->db->query('DELETE FROM products WHERE id = ?', [$id])->rowCount() > 0;
     }
 }
