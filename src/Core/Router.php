@@ -6,27 +6,27 @@ class Router
 {
     private array $routes = [];
 
-    public function get(string $path, callable $handler): void
+    public function get(string $path, array $handler): void
     {
         $this->addRoute('GET', $path, $handler);
     }
 
-    public function post(string $path, callable $handler): void
+    public function post(string $path, array $handler): void
     {
         $this->addRoute('POST', $path, $handler);
     }
 
-    public function put(string $path, callable $handler): void
+    public function put(string $path, array $handler): void
     {
         $this->addRoute('PUT', $path, $handler);
     }
 
-    public function delete(string $path, callable $handler): void
+    public function delete(string $path, array $handler): void
     {
         $this->addRoute('DELETE', $path, $handler);
     }
 
-    private function addRoute(string $method, string $path, callable $handler): void
+    private function addRoute(string $method, string $path, array $handler): void
     {
         $this->routes[] = [
             'method'  => strtoupper($method),
@@ -53,7 +53,11 @@ class Router
 
             if ($route['method'] === $method && preg_match($regex, $uri, $matches)) {
                 array_shift($matches);
-                call_user_func_array($route['handler'], $matches);
+
+                [$class, $methodName] = $route['handler'];
+                $controller = new $class();
+
+                call_user_func_array([$controller, $methodName], $matches);
                 return;
             }
         }
