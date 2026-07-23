@@ -5,9 +5,6 @@ namespace App\Controllers;
 use App\Core\Response;
 use App\Services\ProductService;
 
-/**
- * Menangani semua request HTTP untuk endpoint /api/products.
- */
 class ProductController
 {
     private ProductService $service;
@@ -17,13 +14,11 @@ class ProductController
         $this->service = new ProductService();
     }
 
-    /** GET /api/products */
     public function index(): void
     {
         Response::success($this->service->getAllProducts(), 'Daftar produk berhasil diambil.');
     }
 
-    /** GET /api/products/{id} */
     public function show(string $id): void
     {
         $product = $this->service->getProductById((int) $id);
@@ -36,7 +31,6 @@ class ProductController
         Response::success($product, 'Detail produk berhasil diambil.');
     }
 
-    /** POST /api/products */
     public function store(): void
     {
         $input = $this->parseInput();
@@ -58,7 +52,6 @@ class ProductController
         }
     }
 
-    /** PUT /api/products/{id} */
     public function update(string $id): void
     {
         $input = $this->parseInput();
@@ -87,7 +80,6 @@ class ProductController
         }
     }
 
-    /** DELETE /api/products/{id} */
     public function destroy(string $id): void
     {
         try {
@@ -104,7 +96,6 @@ class ProductController
         }
     }
 
-    /** Baca dan decode JSON dari request body. */
     private function parseInput(): array
     {
         $data = json_decode(file_get_contents('php://input'), true);

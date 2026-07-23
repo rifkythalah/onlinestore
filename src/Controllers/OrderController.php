@@ -7,9 +7,6 @@ use App\Core\Response;
 use App\Services\OrderService;
 use Exception;
 
-/**
- * Menangani semua request HTTP untuk endpoint /api/orders.
- */
 class OrderController
 {
     private OrderService $service;
@@ -19,13 +16,11 @@ class OrderController
         $this->service = new OrderService();
     }
 
-    /** GET /api/orders */
     public function index(): void
     {
         Response::success($this->service->getAllOrders(), 'Daftar pesanan berhasil diambil.');
     }
 
-    /** GET /api/orders/{id} */
     public function show(string $id): void
     {
         $order = $this->service->getOrderById((int) $id);
@@ -38,16 +33,6 @@ class OrderController
         Response::success($order, 'Detail pesanan berhasil diambil.');
     }
 
-    /**
-     * POST /api/orders
-     *
-     * Endpoint ini dilindungi dari race condition oleh OrderService.
-     * Request body yang diharapkan:
-     * {
-     *   "items": [{ "product_id": 1, "quantity": 2 }],
-     *   "notes": "..." (opsional)
-     * }
-     */
     public function store(): void
     {
         $input = $this->parseInput();
@@ -60,24 +45,17 @@ class OrderController
         try {
             $result = $this->service->createOrder($input['items'], $input['notes'] ?? null);
 
-            // Service mengembalikan string jika ada kegagalan validasi bisnis (stok habis, dll)
             if (is_string($result)) {
                 Response::unprocessable($result);
                 return;
             }
 
             Response::created($result, 'Pesanan berhasil dibuat.');
-
         } catch (Exception $e) {
             Response::serverError('Terjadi kesalahan saat memproses pesanan: ' . $e->getMessage());
         }
     }
 
-    /**
-     * PUT /api/orders/{id}
-     *
-     * Update status pesanan. Status yang valid: pending, confirmed, cancelled.
-     */
     public function update(string $id): void
     {
         $input  = $this->parseInput();
@@ -110,7 +88,6 @@ class OrderController
         }
     }
 
-    /** Baca dan decode JSON dari request body. */
     private function parseInput(): array
     {
         $data = json_decode(file_get_contents('php://input'), true);

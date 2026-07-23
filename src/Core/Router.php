@@ -2,13 +2,8 @@
 
 namespace App\Core;
 
-/**
- * Router sederhana berbasis method + path.
- * Mendukung parameter dinamis pada URL, contoh: /api/products/{id}
- */
 class Router
 {
-    /** @var array<int, array{method: string, pattern: string, handler: callable}> */
     private array $routes = [];
 
     public function get(string $path, callable $handler): void
@@ -40,16 +35,11 @@ class Router
         ];
     }
 
-    /**
-     * Cocokkan request yang masuk ke route yang terdaftar lalu panggil handler-nya.
-     * Kembalikan 404 jika tidak ada yang cocok.
-     */
     public function dispatch(): void
     {
         $method = $_SERVER['REQUEST_METHOD'];
-        $uri    = $this->parseUri();
+        $uri    = rtrim(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), '/') ?: '/';
 
-        // Tanggapi CORS preflight request
         if ($method === 'OPTIONS') {
             http_response_code(204);
             header('Access-Control-Allow-Origin: *');
@@ -59,24 +49,15 @@ class Router
         }
 
         foreach ($this->routes as $route) {
-            // Ubah {param} menjadi regex capture group
-            $regex = preg_replace('/\{[a-zA-Z_]+\}/', '([^/]+)', $route['pattern']);
-            $regex = "#^{$regex}$#";
+            $regex = "#^" . preg_replace('/\{[a-zA-Z_]+\}/', '([^/]+)', $route['pattern']) . "$#";
 
             if ($route['method'] === $method && preg_match($regex, $uri, $matches)) {
-                array_shift($matches); // Buang full match, ambil param saja
+                array_shift($matches);
                 call_user_func_array($route['handler'], $matches);
                 return;
             }
         }
 
         Response::notFound("Endpoint [{$method}] {$uri} tidak ditemukan.");
-    }
-
-    /** Ambil path URI bersih tanpa query string dan trailing slash. */
-    private function parseUri(): string
-    {
-        $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-        return rtrim($uri, '/') ?: '/';
     }
 }
