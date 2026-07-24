@@ -2,8 +2,6 @@
 
 REST API toko online yang dibangun dengan **Pure PHP 8.3** dan **PostgreSQL**, dirancang khusus untuk menangani lonjakan transaksi *flash sale* secara aman melalui mekanisme **Pessimistic Locking**.
 
-Dibuat oleh **Rifqi Athallah** sebagai proyek portofolio backend development.
-
 ## Fitur
 
 - CRUD lengkap untuk **Produk** (termasuk harga flash sale dan manajemen stok)
