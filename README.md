@@ -2,6 +2,8 @@
 
 REST API toko online yang dibangun dengan **Pure PHP 8.3** dan **PostgreSQL**, dirancang khusus untuk menangani lonjakan transaksi *flash sale* secara aman melalui mekanisme **Pessimistic Locking**.
 
+Dibuat oleh **Rifqi Athallah** sebagai proyek portofolio backend development.
+
 ## Fitur
 
 - CRUD lengkap untuk **Produk** (termasuk harga flash sale dan manajemen stok)
@@ -15,6 +17,24 @@ REST API toko online yang dibangun dengan **Pure PHP 8.3** dan **PostgreSQL**, d
 - PostgreSQL 14
 - Composer (PSR-4 Autoload + phpdotenv)
 - Apache (Laragon) dengan mod_rewrite
+
+## Arsitektur
+
+Proyek ini mengikuti pola mini-MVC manual tanpa framework:
+
+```
+Request masuk → public/index.php → Router::dispatch()
+    → mencocokkan method + URL, instantiate Controller yang sesuai
+        → Controller memvalidasi format input
+            → melempar logic bisnis ke Service (query DB, hitung total, cek stok)
+                → Response mengembalikan hasil dalam format JSON konsisten
+```
+
+- **Router** — mendaftarkan route dan mencocokkan request ke Controller + method yang tepat, termasuk parameter dinamis seperti `{id}`
+- **Database** — koneksi PDO ke PostgreSQL dengan pola Singleton, mendukung transaction (`beginTransaction`, `commit`, `rollback`)
+- **Response** — helper standarisasi output JSON (`success`, `created`, `error`, `notFound`, `unprocessable`, `serverError`)
+- **Controllers** — lapisan validasi format request
+- **Services** — lapisan logic bisnis (perhitungan harga, pengecekan stok, pessimistic locking)
 
 ## Struktur Proyek
 
@@ -42,6 +62,8 @@ REST API toko online yang dibangun dengan **Pure PHP 8.3** dan **PostgreSQL**, d
 ```
 
 ## Instalasi
+
+**Prasyarat:** PHP 8.3 dengan ekstensi `zip` dan `pdo_pgsql` aktif, PostgreSQL 14, dan Composer.
 
 **1. Clone repository**
 ```bash
@@ -126,6 +148,34 @@ Semua response menggunakan format JSON dengan struktur:
 {
     "status": "cancelled"
 }
+```
+
+---
+
+## Testing Manual
+
+Cara tercepat untuk mencoba API ini adalah lewat **Postman**:
+
+1. Set base URL ke `http://localhost:8080` (atau URL ngrok jika diakses dari luar)
+2. **GET** `{{base_url}}/api/products` — melihat daftar produk
+3. **POST** `{{base_url}}/api/orders` dengan body:
+   ```json
+   { "items": [ { "product_id": 2, "quantity": 999 } ] }
+   ```
+   Diharapkan gagal (HTTP 422) karena stok tidak mencukupi
+4. **POST** `{{base_url}}/api/orders` dengan body:
+   ```json
+   { "items": [ { "product_id": 2, "quantity": 1 } ] }
+   ```
+   Diharapkan berhasil (HTTP 201)
+
+Atau lewat `curl`:
+```bash
+curl http://localhost:8080/api/products
+
+curl -X POST http://localhost:8080/api/orders \
+  -H "Content-Type: application/json" \
+  -d '{"items":[{"product_id":2,"quantity":1}]}'
 ```
 
 ---
